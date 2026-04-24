@@ -139,7 +139,7 @@ The hard/extra-hard Spider categories (~30% of validation) heavily feature neste
 
 ## Resources
 
-- **Full write-up:** [Blog post](<!-- add link -->)
+- **Full write-up:** [Blog post](https://www.kaggle.com/code/mehulkumar99/blog-question-to-sql-query)
 - **Dataset:** [Spider](https://huggingface.co/datasets/spider) | [Spider Schema](https://huggingface.co/datasets/richardr1126/spider-schema)
 - **Base model:** [Unsloth Llama 3.1 8B](https://huggingface.co/unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit)
 - **Unsloth:** [github.com/unslothai/unsloth](https://github.com/unslothai/unsloth)
