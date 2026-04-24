@@ -45,7 +45,7 @@ By annotating join paths explicitly, the model sees the relational structure dir
 ---
 
 ## Architecture
-![Architecture]("C:\Users\mehul\Downloads\Architecture.png")
+![Architecture]("Architecture.png")
 
 ```
 Input: Natural Language Question + Database Schema
