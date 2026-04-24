@@ -1,4 +1,4 @@
-<img width="1637" height="4249" alt="Architecture" src="https://github.com/user-attachments/assets/73a3b276-a4e1-48c0-8172-8045d1f327b4" />
+
 # NL2SQL: Matching GPT-3.5 at 1/10th the Cost
 
 Fine-tuning Llama 3.1 8B on the Spider benchmark using QLoRA — achieving **~70% Execution Accuracy** on par with GPT-3.5 zero-shot, trained entirely on free Kaggle T4 GPUs.
