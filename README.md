@@ -24,6 +24,7 @@
 
 ![Hero Screenshot](screenshots/simple_for_both.png)
 
+
 > Standard and Agentic outputs side by side. Both correct on a simple aggregation query — standard uses `ORDER BY + LIMIT`, agentic constructs a subquery. For simple queries the standard prompt is cleaner and faster.
 
 ---
@@ -164,7 +165,7 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 
 **Example 1 — Simple aggregation (concert_singer database)**
 
-![CoT Overcomplicated Screenshot](screenshots/simple_for_both.png)
+![Simple Both Correct Screenshot](screenshots/simple_for_both.png)
 
 > **Question:** "What is the name and capacity for the stadium with highest average attendance?"
 >
