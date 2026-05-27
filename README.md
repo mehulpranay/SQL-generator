@@ -22,7 +22,7 @@
 
 ## Live Demo
 
-![Hero Screenshot](screenshots/simple for both.png)
+![Hero Screenshot](screenshots/simple_for_both.png)
 
 
 > Standard and Agentic outputs side by side. Both correct on a simple aggregation query — standard uses `ORDER BY + LIMIT`, agentic constructs a subquery. For simple queries the standard prompt is cleaner and faster.
@@ -42,7 +42,7 @@ Spider is the standard benchmark for this problem. It has ~7,000 training exampl
 **Example 1 — Mapping Error (car_1 database)**
 
 
-![Mapping Error Screenshot](screenshots/complex join where standard is wrong but cot is correct..png)
+![Mapping Error Screenshot](screenshots/complex_join_where_standard_is_wrong_but_cot_is_correct.png)
 
 
 > **Question:** "For all of the 4 cylinder cars, which model has the most horsepower?"
@@ -54,8 +54,7 @@ Spider is the standard benchmark for this problem. It has ~7,000 training exampl
 **Example 2 — Subquery Logic (concert_singer database)**
 
 
-![Subquery Logic Screenshot](screenshots/standard wrong, cot right.png)
-
+![Subquery Logic Screenshot](screenshots/standard_wrong_cot_right.png)
 
 > **Question:** "What are the number of concerts that occurred in the stadium with the largest capacity?"
 >
@@ -170,7 +169,7 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 **Example 1 — Simple aggregation (concert_singer database)**
 
 
-![Simple Both Correct Screenshot](screenshots/simple for both.png)
+![Simple Both Correct Screenshot](screenshots/simple_for_both.png)
 
 > **Question:** "What is the name and capacity for the stadium with highest average attendance?"
 >
@@ -183,7 +182,8 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 
 **Example 2 — Single table lookup (concert_singer database)**
 
-![CoT Overcomplicated Self Join](screenshots/cot overcomplicated it but right.png)
+
+![CoT Overcomplicated Self Join](screenshots/cot_overcomplicated_it_but_right.png)
 
 > **Question:** "Show the song name and release year of the song by the youngest singer."
 >
