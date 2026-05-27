@@ -158,6 +158,38 @@ BLEU and exact string match are meaningless for SQL — `SELECT COUNT(*)` and `S
 
 ---
 
+## When Standard Wins
+
+CoT has a complexity bias — it tends to over-engineer simple queries where the standard prompt is cleaner and faster. Two examples:
+
+**Example 1 — Simple aggregation (concert_singer database)**
+
+![CoT Overcomplicated Screenshot](screenshots/simple_for_both.png)
+
+> **Question:** "What is the name and capacity for the stadium with highest average attendance?"
+>
+> Standard: `SELECT name, capacity FROM stadium ORDER BY average DESC LIMIT 1`
+> Agentic: `SELECT name, capacity FROM stadium WHERE average = (SELECT max(average) FROM stadium)`
+>
+> Both return the same result. Standard is one clean line. Agentic constructed an unnecessary subquery. For single-table aggregation, `ORDER BY + LIMIT` is idiomatic and sufficient.
+
+---
+
+**Example 2 — Single table lookup (concert_singer database)**
+
+![CoT Overcomplicated Self Join](screenshots/cot_overcomplicated_it_but_right.png)
+
+> **Question:** "Show the song name and release year of the song by the youngest singer."
+>
+> Standard: `SELECT Song_Name, Song_release_year FROM singer ORDER BY Age LIMIT 1`
+> Agentic: Self-JOIN subquery to first isolate the youngest Singer_ID, then retrieve song fields.
+>
+> Again both are correct, but standard solved it in one line. Agentic's Step 2 verification triggered an unnecessary JOIN path because it saw a FK column and assumed a multi-table problem. The lesson: CoT verification rules are tuned for hard queries and can misfire on easy ones.
+
+**Takeaway:** The right strategy is adaptive — use the agentic prompt for multi-table queries and aggregations involving FK traversal, fall back to standard for single-table lookups. A token-length heuristic (`use_cot = estimated_joins > 1`) is a reasonable proxy.
+
+---
+
 ## Limitations
 
 - Only covers Spider benchmark databases (7 pre-loaded schemas in the demo)
