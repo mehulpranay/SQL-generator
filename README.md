@@ -182,7 +182,6 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 
 **Example 2 — Single table lookup (concert_singer database)**
 
-
 ![CoT Overcomplicated Self Join](screenshots/cot_overcomplicated_it_but_right.png)
 
 > **Question:** "Show the song name and release year of the song by the youngest singer."
@@ -225,4 +224,4 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 | Agent Notebook | [Kaggle](https://www.kaggle.com/code/mehulkumar99/agentic-loop-addressing-syntax-errors) |
 | RAG Notebook | [Kaggle](https://www.kaggle.com/code/mehulkumar99/rag-sql) |
 | GitHub | [SQL-generator](https://github.com/mehulpranay/SQL-generator) |
-| Dataset | [Spider](https://huggingface.co/datasets/spider) |
+| Dataset | [Spider](https://yale-lily.github.io/spider) |
