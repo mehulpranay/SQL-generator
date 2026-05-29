@@ -30,17 +30,13 @@
 
 ## Why NL2SQL?
 
-SQL generation sounds like a solved problem — until you realize GPT-3.5 with zero-shot prompting only gets 70% on Spider. This project reached 84% with an 8B model on free Kaggle GPUs. The gap isn't model size — it's a series of deliberate engineering decisions, each solving a specific failure mode.
+SQL generation sounds like a solved problem — until you realize GPT-3.5 with zero-shot prompting only gets 70% on Spider. This project reached 84% with an 8B model on free Kaggle GPUs through five targeted decisions:
 
-**Fine-tuning over prompting.** A general-purpose LLM doesn't know Spider's conventions — it hallucinates column names, picks wrong tables, and ignores foreign keys. Fine-tuning on 6,607 Spider examples teaches the model the structure of the problem: what a valid SQL answer looks like given a schema.
-
-**Schema representation is load-bearing.** Telling the model a column exists is not enough — it needs to know what's actually in it. A column called `Model` could contain car families like `amc, bmw` or specific makes like `chevrolet chevelle malibu`. Without sample values, the model guesses. With them, it picks the right table. Adding 3 sample values per column pushed accuracy from 70% to 75% at inference time, before any retraining.
-
-**Augmented fine-tuning closes the gap.** Showing sample rows only at inference time helps, but the model hasn't learned *how to use* that information. Fine-tuning on augmented schema taught the model to read sample rows as evidence for table and column selection — pushing accuracy to 81%.
-
-**Detailed system instructions reduce ambiguity.** When multiple tables share a column name, the model needs an explicit tiebreaker rule. The SQL Architect persona enforces: pick the primary source table, check sample rows before assuming a column's meaning, never hallucinate.
-
-**Chain-of-thought is not optional for hard queries.** The model reasons better when forced to articulate *what data it needs* and *which table it comes from* before writing SQL. Suppressing this reasoning trace kills accuracy — the reasoning *is* the answer. This pushed accuracy from 81% to 84%.
+- **Fine-tuning** taught the model Spider's conventions — correct table selection, FK traversal, valid SQL structure.
+- **Schema augmentation** added 3 sample values per column. The model stopped guessing column contents and started reading them — pushing accuracy from 70% to 75% before any retraining.
+- **Augmented fine-tuning** closed the train-inference mismatch — the model learned to use sample rows as evidence, not just see them — reaching 81%.
+- **Detailed system instructions** gave the model explicit tiebreaker rules for ambiguous column names and multi-table joins.
+- **Chain-of-thought + agentic retry loop** forced the model to reason through attribute mapping before writing SQL, and fed SQLite execution errors back as retry prompts — reducing syntax errors by 36% and pushing accuracy to 84%.
 
 ---
 
