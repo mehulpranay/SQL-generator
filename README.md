@@ -96,7 +96,7 @@ The chain-of-thought anchor forces attribute mapping and table verification befo
 
 > **Question:** "For all of the 4 cylinder cars, which model has the most horsepower?"
 >
-> Standard joined `model_list` to get `Model` — but `model_list.Model` contains generic model families (amc, audi, bmw), not specific car names. The correct table is `car_names`. CoT's Step 2 verification cross-referenced sample rows, identified `car_names` as the primary source, and added `GROUP BY + max()` for correct aggregation.
+> **Standard has a joining error.** It joined through `model_list` to get `Model` — but `model_list.Model` contains generic family names like `amc, audi, bmw`, not individual car variants. The correct table is `car_names`, which contains specific makes like `chevrolet chevelle malibu`. Standard pattern-matched on column name alone and picked the wrong table. CoT's Step 2 forced a sample row check, caught the mismatch, and joined through `car_names` instead — also adding `GROUP BY + max()` for correct aggregation.
 
 ---
 
@@ -106,7 +106,7 @@ The chain-of-thought anchor forces attribute mapping and table verification befo
 
 > **Question:** "What are the number of concerts that occurred in the stadium with the largest capacity?"
 >
-> Standard used `JOIN + ORDER BY + LIMIT` — which orders the joined rows by capacity but counts only one row, making the result meaningless. CoT correctly used a subquery to first identify the stadium with maximum capacity, then counted concerts for that specific stadium only.
+> **Standard fails to break down the problem.** It joins `concert` and `stadium` then applies `ORDER BY + LIMIT` — but this just orders the joined rows and returns one row, not the count of concerts for the largest stadium. It never actually filters to the largest stadium first. CoT broke the problem into two steps: first find the stadium with maximum capacity via a subquery, then count concerts for that specific stadium. The decomposition is what standard missed.
 
 ---
 
