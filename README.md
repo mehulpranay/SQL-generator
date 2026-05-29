@@ -25,7 +25,7 @@
 ![Hero Screenshot](screenshots/simple_for_both.png)
 
 
-> Standard and Agentic outputs side by side. Both correct on a simple aggregation query — standard uses `ORDER BY + LIMIT`, agentic constructs a subquery. For simple queries the standard prompt is cleaner and faster.
+> Standard and CoT outputs side by side. Both correct on a simple aggregation query — standard uses `ORDER BY + LIMIT`, CoT constructs a subquery. For simple queries the standard prompt is cleaner and faster.
 
 ---
 
@@ -37,7 +37,7 @@ Spider is the standard benchmark for this problem. It has ~7,000 training exampl
 
 ---
 
-## Where Standard Fails, Agentic Fixes It
+## Where Standard Fails, CoT Fixes It
 
 **Example 1 — Mapping Error (car_1 database)**
 
@@ -47,7 +47,7 @@ Spider is the standard benchmark for this problem. It has ~7,000 training exampl
 
 > **Question:** "For all of the 4 cylinder cars, which model has the most horsepower?"
 >
-> Standard joined `model_list` to get `Model` — but `model_list.Model` contains generic model families (amc, audi, bmw), not specific car names. The correct table is `car_names`. Agentic's Step 2 verification cross-referenced sample rows, identified `car_names` as the primary source, and added `GROUP BY + max()` for correct aggregation.
+> Standard joined `model_list` to get `Model` — but `model_list.Model` contains generic model families (amc, audi, bmw), not specific car names. The correct table is `car_names`. CoT's Step 2 verification cross-referenced sample rows, identified `car_names` as the primary source, and added `GROUP BY + max()` for correct aggregation.
 
 ---
 
@@ -58,7 +58,7 @@ Spider is the standard benchmark for this problem. It has ~7,000 training exampl
 
 > **Question:** "What are the number of concerts that occurred in the stadium with the largest capacity?"
 >
-> Standard used `JOIN + ORDER BY + LIMIT` — which orders the joined rows by capacity but counts only one row, making the result meaningless. Agentic correctly used a subquery to first identify the stadium with maximum capacity, then counted concerts for that specific stadium only.
+> Standard used `JOIN + ORDER BY + LIMIT` — which orders the joined rows by capacity but counts only one row, making the result meaningless. CoT correctly used a subquery to first identify the stadium with maximum capacity, then counted concerts for that specific stadium only.
 
 ---
 
@@ -71,7 +71,7 @@ Schema Formatter (PK/FK annotations + sample rows)
       ↓
 Prompt Builder (Llama 3.1 chat template)
       ↓  
-QLoRA Fine-tuned Llama 3.1 8B (Standard or Agentic prompt)
+QLoRA Fine-tuned Llama 3.1 8B (Standard or CoT prompt)
       ↓
 extract_sql_from_reasoning() (regex + fallback)
       ↓
@@ -102,9 +102,9 @@ Sample rows let the model see that `Horsepower` lives in `cars_data`, not `car_n
 
 ---
 
-## Agentic Prompt: SQL Architect + Chain-of-Thought
+## CoT Prompt: SQL Architect + Chain-of-Thought
 
-The agentic prompt replaces the generic "convert to SQL" instruction with an expert persona and forces explicit reasoning before writing SQL:
+The CoT prompt replaces the generic "convert to SQL" instruction with an expert persona and forces explicit reasoning before writing SQL:
 
 ```
 You are an expert SQL Architect.
@@ -174,9 +174,9 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 > **Question:** "What is the name and capacity for the stadium with highest average attendance?"
 >
 > Standard: `SELECT name, capacity FROM stadium ORDER BY average DESC LIMIT 1`
-> Agentic: `SELECT name, capacity FROM stadium WHERE average = (SELECT max(average) FROM stadium)`
+> CoT: `SELECT name, capacity FROM stadium WHERE average = (SELECT max(average) FROM stadium)`
 >
-> Both return the same result. Standard is one clean line. Agentic constructed an unnecessary subquery. For single-table aggregation, `ORDER BY + LIMIT` is idiomatic and sufficient.
+> Both return the same result. Standard is one clean line. CoT constructed an unnecessary subquery. For single-table aggregation, `ORDER BY + LIMIT` is idiomatic and sufficient.
 
 ---
 
@@ -187,11 +187,11 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 > **Question:** "Show the song name and release year of the song by the youngest singer."
 >
 > Standard: `SELECT Song_Name, Song_release_year FROM singer ORDER BY Age LIMIT 1`
-> Agentic: Self-JOIN subquery to first isolate the youngest Singer_ID, then retrieve song fields.
+> CoT: Self-JOIN subquery to first isolate the youngest Singer_ID, then retrieve song fields.
 >
-> Again both are correct, but standard solved it in one line. Agentic's Step 2 verification triggered an unnecessary JOIN path because it saw a FK column and assumed a multi-table problem. The lesson: CoT verification rules are tuned for hard queries and can misfire on easy ones.
+> Again both are correct, but standard solved it in one line. CoT's Step 2 verification triggered an unnecessary JOIN path because it saw a FK column and assumed a multi-table problem. The lesson: CoT verification rules are tuned for hard queries and can misfire on easy ones.
 
-**Takeaway:** The right strategy is adaptive — use the agentic prompt for multi-table queries and aggregations involving FK traversal, fall back to standard for single-table lookups. A token-length heuristic (`use_cot = estimated_joins > 1`) is a reasonable proxy.
+**Takeaway:** The right strategy is adaptive — use the CoT prompt for multi-table queries and aggregations involving FK traversal, fall back to standard for single-table lookups. A token-length heuristic (`use_cot = estimated_joins > 1`) is a reasonable proxy.
 
 ---
 
@@ -199,7 +199,7 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 
 - Only covers Spider benchmark databases (7 pre-loaded schemas in the demo)
 - SQLite syntax only — no PostgreSQL/MySQL specific functions
-- No retry loop in the demo (agentic loop implemented in evaluation notebook)
+- No retry loop in the demo (CoT loop implemented in evaluation notebook)
 - CoT can overcomplicate simple queries — standard prompt is sometimes cleaner
 - 3+ table JOINs with ambiguous column names remain a failure mode
 
@@ -208,7 +208,7 @@ CoT has a complexity bias — it tends to over-engineer simple queries where the
 ## What's Next
 
 - RAG-based schema pruning — embed column chunks, retrieve top-k by question similarity
-- Fine-tuning on agentic prompt format — closes the remaining train-inference mismatch
+- Fine-tuning on CoT prompt format — closes the remaining train-inference mismatch
 - DPO fine-tuning — execution success/failure as reward signal for logical reasoning failures
 
 ---
