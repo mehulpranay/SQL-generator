@@ -228,3 +228,4 @@ BLEU and exact string match are meaningless for SQL — `SELECT COUNT(*)` and `S
 | RAG Notebook | [Kaggle](https://www.kaggle.com/code/mehulkumar99/rag-sql) |
 | GitHub | [SQL-generator](https://github.com/mehulpranay/SQL-generator) |
 | Dataset | [Spider](https://yale-lily.github.io/spider) |
+| Blog | [Kaggle Blog](https://www.kaggle.com/code/mehulkumar99/blog-question-to-sql-query) |
