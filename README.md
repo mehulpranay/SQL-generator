@@ -24,65 +24,29 @@
 
 ![Hero Screenshot](screenshots/simple_for_both.png)
 
-
 > Standard and CoT outputs side by side. Both correct on a simple aggregation query — standard uses `ORDER BY + LIMIT`, CoT constructs a subquery. For simple queries the standard prompt is cleaner and faster.
 
 ---
 
 ## Why NL2SQL?
 
-SQL generation sounds like a solved problem — until you realize GPT-3.5 with zero-shot prompting only gets 70% on Spider. This project matched that score with an 8B model on a free Kaggle GPU by making one non-obvious bet: **schema representation matters more than model size.**
+SQL generation sounds like a solved problem — until you realize GPT-3.5 with zero-shot prompting only gets 70% on Spider. This project reached 84% with an 8B model on free Kaggle GPUs. The gap isn't model size — it's a series of deliberate engineering decisions, each solving a specific failure mode.
 
-Spider is the standard benchmark for this problem. It has ~7,000 training examples across 140+ databases spanning hospitals, universities, concerts, and airlines. The validation set uses **entirely different databases** than training — so memorizing schema names gets you nowhere. The model has to generalize to unseen table structures.
+**Fine-tuning over prompting.** A general-purpose LLM doesn't know Spider's conventions — it hallucinates column names, picks wrong tables, and ignores foreign keys. Fine-tuning on 6,607 Spider examples teaches the model the structure of the problem: what a valid SQL answer looks like given a schema.
 
----
+**Schema representation is load-bearing.** Telling the model a column exists is not enough — it needs to know what's actually in it. A column called `Model` could contain car families like `amc, bmw` or specific makes like `chevrolet chevelle malibu`. Without sample values, the model guesses. With them, it picks the right table. Adding 3 sample values per column pushed accuracy from 70% to 75% at inference time, before any retraining.
 
-## Where Standard Fails, CoT Fixes It
+**Augmented fine-tuning closes the gap.** Showing sample rows only at inference time helps, but the model hasn't learned *how to use* that information. Fine-tuning on augmented schema taught the model to read sample rows as evidence for table and column selection — pushing accuracy to 81%.
 
-**Example 1 — Mapping Error (car_1 database)**
+**Detailed system instructions reduce ambiguity.** When multiple tables share a column name, the model needs an explicit tiebreaker rule. The SQL Architect persona enforces: pick the primary source table, check sample rows before assuming a column's meaning, never hallucinate.
 
-
-![Mapping Error Screenshot](screenshots/complex_join_where_standard_is_wrong_but_cot_is_correct.png)
-
-
-> **Question:** "For all of the 4 cylinder cars, which model has the most horsepower?"
->
-> Standard joined `model_list` to get `Model` — but `model_list.Model` contains generic model families (amc, audi, bmw), not specific car names. The correct table is `car_names`. CoT's Step 2 verification cross-referenced sample rows, identified `car_names` as the primary source, and added `GROUP BY + max()` for correct aggregation.
-
----
-
-**Example 2 — Subquery Logic (concert_singer database)**
-
-
-![Subquery Logic Screenshot](screenshots/standard_wrong_cot_right.png)
-
-> **Question:** "What are the number of concerts that occurred in the stadium with the largest capacity?"
->
-> Standard used `JOIN + ORDER BY + LIMIT` — which orders the joined rows by capacity but counts only one row, making the result meaningless. CoT correctly used a subquery to first identify the stadium with maximum capacity, then counted concerts for that specific stadium only.
-
----
-
-## Architecture
-
-```
-User Question
-      ↓
-Schema Formatter (PK/FK annotations + sample rows)
-      ↓
-Prompt Builder (Llama 3.1 chat template)
-      ↓  
-QLoRA Fine-tuned Llama 3.1 8B (Standard or CoT prompt)
-      ↓
-extract_sql_from_reasoning() (regex + fallback)
-      ↓
-Generated SQL
-```
+**Chain-of-thought is not optional for hard queries.** The model reasons better when forced to articulate *what data it needs* and *which table it comes from* before writing SQL. Suppressing this reasoning trace kills accuracy — the reasoning *is* the answer. This pushed accuracy from 81% to 84%.
 
 ---
 
 ## Schema Representation: The Key Insight
 
-Most NL2SQL tutorials dump raw `CREATE TABLE` strings into the prompt. This project uses a custom formatter that produces clean, human-readable schema with explicit PK/FK annotations and sample column values:
+Instead of raw `CREATE TABLE` strings, this project formats schema with explicit PK/FK annotations and sample column values:
 
 ```
 # Table: car_names
@@ -98,7 +62,7 @@ Most NL2SQL tutorials dump raw `CREATE TABLE` strings into the prompt. This proj
 - Weight (number) | e.g: [3504, 3693, 3436]
 ```
 
-Sample rows let the model see that `Horsepower` lives in `cars_data`, not `car_names`. This structural signal is what turns column hallucination into correct JOIN paths.
+The sample values tell the model that `Horsepower` lives in `cars_data` not `car_names`, and that `MakeId` is a number not a name — so it knows when to JOIN to get text. This is what turns column hallucination into correct JOIN paths.
 
 ---
 
@@ -121,6 +85,78 @@ STRICT RULE for STEP 2 (VERIFICATION):
 ```
 
 The chain-of-thought anchor forces attribute mapping and table verification before any SQL is written. Suppressing this reasoning kills accuracy — the reasoning trace *is* the answer.
+
+---
+
+## Where Standard Fails, CoT Fixes It
+
+**Example 1 — Mapping Error (car_1 database)**
+
+![Mapping Error Screenshot](screenshots/complex_join_where_standard_is_wrong_but_cot_is_correct.png)
+
+> **Question:** "For all of the 4 cylinder cars, which model has the most horsepower?"
+>
+> Standard joined `model_list` to get `Model` — but `model_list.Model` contains generic model families (amc, audi, bmw), not specific car names. The correct table is `car_names`. CoT's Step 2 verification cross-referenced sample rows, identified `car_names` as the primary source, and added `GROUP BY + max()` for correct aggregation.
+
+---
+
+**Example 2 — Subquery Logic (concert_singer database)**
+
+![Subquery Logic Screenshot](screenshots/standard_wrong_cot_right.png)
+
+> **Question:** "What are the number of concerts that occurred in the stadium with the largest capacity?"
+>
+> Standard used `JOIN + ORDER BY + LIMIT` — which orders the joined rows by capacity but counts only one row, making the result meaningless. CoT correctly used a subquery to first identify the stadium with maximum capacity, then counted concerts for that specific stadium only.
+
+---
+
+## When Standard Wins
+
+CoT has a complexity bias — it tends to over-engineer simple queries where the standard prompt is cleaner and faster. Two examples:
+
+**Example 1 — Simple aggregation (concert_singer database)**
+
+![Simple Both Correct Screenshot](screenshots/simple_for_both.png)
+
+> **Question:** "What is the name and capacity for the stadium with highest average attendance?"
+>
+> Standard: `SELECT name, capacity FROM stadium ORDER BY average DESC LIMIT 1`
+> CoT: `SELECT name, capacity FROM stadium WHERE average = (SELECT max(average) FROM stadium)`
+>
+> Both return the same result. Standard is one clean line. CoT constructed an unnecessary subquery. For single-table aggregation, `ORDER BY + LIMIT` is idiomatic and sufficient.
+
+---
+
+**Example 2 — Single table lookup (concert_singer database)**
+
+![CoT Overcomplicated Self Join](screenshots/cot_overcomplicated_it_but_right.png)
+
+> **Question:** "Show the song name and release year of the song by the youngest singer."
+>
+> Standard: `SELECT Song_Name, Song_release_year FROM singer ORDER BY Age LIMIT 1`
+> CoT: Self-JOIN subquery to first isolate the youngest Singer_ID, then retrieve song fields.
+>
+> Again both are correct, but standard solved it in one line. CoT's Step 2 verification triggered an unnecessary JOIN path because it saw a FK column and assumed a multi-table problem. The lesson: CoT verification rules are tuned for hard queries and can misfire on easy ones.
+
+**Takeaway:** The right strategy is adaptive — use the CoT prompt for multi-table queries and aggregations involving FK traversal, fall back to standard for single-table lookups. A token-length heuristic (`use_cot = estimated_joins > 1`) is a reasonable proxy.
+
+---
+
+## Architecture
+
+```
+User Question
+      ↓
+Schema Formatter (PK/FK annotations + sample rows)
+      ↓
+Prompt Builder (Llama 3.1 chat template)
+      ↓
+QLoRA Fine-tuned Llama 3.1 8B (Standard or CoT prompt)
+      ↓
+extract_sql_from_reasoning() (regex + fallback)
+      ↓
+Generated SQL
+```
 
 ---
 
@@ -162,44 +198,11 @@ BLEU and exact string match are meaningless for SQL — `SELECT COUNT(*)` and `S
 
 ---
 
-## When Standard Wins
-
-CoT has a complexity bias — it tends to over-engineer simple queries where the standard prompt is cleaner and faster. Two examples:
-
-**Example 1 — Simple aggregation (concert_singer database)**
-
-
-![Simple Both Correct Screenshot](screenshots/simple_for_both.png)
-
-> **Question:** "What is the name and capacity for the stadium with highest average attendance?"
->
-> Standard: `SELECT name, capacity FROM stadium ORDER BY average DESC LIMIT 1`
-> CoT: `SELECT name, capacity FROM stadium WHERE average = (SELECT max(average) FROM stadium)`
->
-> Both return the same result. Standard is one clean line. CoT constructed an unnecessary subquery. For single-table aggregation, `ORDER BY + LIMIT` is idiomatic and sufficient.
-
----
-
-**Example 2 — Single table lookup (concert_singer database)**
-
-![CoT Overcomplicated Self Join](screenshots/cot_overcomplicated_it_but_right.png)
-
-> **Question:** "Show the song name and release year of the song by the youngest singer."
->
-> Standard: `SELECT Song_Name, Song_release_year FROM singer ORDER BY Age LIMIT 1`
-> CoT: Self-JOIN subquery to first isolate the youngest Singer_ID, then retrieve song fields.
->
-> Again both are correct, but standard solved it in one line. CoT's Step 2 verification triggered an unnecessary JOIN path because it saw a FK column and assumed a multi-table problem. The lesson: CoT verification rules are tuned for hard queries and can misfire on easy ones.
-
-**Takeaway:** The right strategy is adaptive — use the CoT prompt for multi-table queries and aggregations involving FK traversal, fall back to standard for single-table lookups. A token-length heuristic (`use_cot = estimated_joins > 1`) is a reasonable proxy.
-
----
-
 ## Limitations
 
 - Only covers Spider benchmark databases (7 pre-loaded schemas in the demo)
 - SQLite syntax only — no PostgreSQL/MySQL specific functions
-- No retry loop in the demo (CoT loop implemented in evaluation notebook)
+- No retry loop in the demo (agentic loop implemented in evaluation notebook)
 - CoT can overcomplicate simple queries — standard prompt is sometimes cleaner
 - 3+ table JOINs with ambiguous column names remain a failure mode
 
